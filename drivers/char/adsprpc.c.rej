@@ -1,0 +1,10 @@
+--- drivers/char/adsprpc.c	2017-03-12 21:44:07.000000000 -0500
++++ drivers/char/adsprpc.c	2017-05-08 21:34:56.000000000 -0500
+@@ -1864,6 +1874,7 @@
+ 			break;
+ 		}
+ 		mutex_unlock(&me->flfree_mutex);
++		if (freefl)
+ 		fastrpc_file_free(freefl->fl);
+ 		mutex_lock(&me->flfree_mutex);
+ 

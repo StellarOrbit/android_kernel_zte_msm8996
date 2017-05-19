@@ -1,0 +1,18 @@
+--- drivers/staging/android/ion/ion_cma_heap.c	2017-03-12 21:44:09.000000000 -0500
++++ drivers/staging/android/ion/ion_cma_heap.c	2017-05-08 21:34:58.000000000 -0500
+@@ -274,10 +274,15 @@
+ 
+ 	source_vm = VMID_HLOS;
+ 	dest_vm = get_secure_vmid(flags);
++
+ 	if (dest_vm < 0) {
+ 		pr_err("%s: Failed to get secure vmid\n", __func__);
+ 		return -EINVAL;
+ 	}
++
++	if (dest_vm == VMID_CP_SEC_DISPLAY)
++		dest_perms = PERM_READ;
++	else
+ 	dest_perms = PERM_READ | PERM_WRITE;
+ 
+ 	ret = ion_cma_allocate(heap, buffer, len, align, flags);

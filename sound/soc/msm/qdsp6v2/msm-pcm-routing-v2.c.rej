@@ -1,0 +1,26 @@
+--- sound/soc/msm/qdsp6v2/msm-pcm-routing-v2.c	2017-05-08 21:35:00.000000000 -0500
++++ sound/soc/msm/qdsp6v2/msm-pcm-routing-v2.c	2017-03-12 21:44:10.000000000 -0500
+@@ -1978,11 +1978,6 @@
+ 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+ 	struct snd_soc_dapm_update *update = NULL;
+ 
+-	if (mux >= e->items) {
+-		pr_err("%s: Invalid mux value %d\n", __func__, mux);
+-		return -EINVAL;
+-	}
+-
+ 	mutex_lock(&routing_lock);
+ 	switch (ucontrol->value.integer.value[0]) {
+ 	case 0:
+@@ -2142,11 +2137,6 @@
+ 	uint16_t ext_ec_ref_port_id;
+ 	struct snd_soc_dapm_update *update = NULL;
+ 
+-	if (mux >= e->items) {
+-		pr_err("%s: Invalid mux value %d\n", __func__, mux);
+-		return -EINVAL;
+-	}
+-
+ 	mutex_lock(&routing_lock);
+ 	msm_route_ext_ec_ref = ucontrol->value.integer.value[0];
+ 

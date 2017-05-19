@@ -1,0 +1,11 @@
+--- sound/usb/usb_audio_qmi_svc.c	2017-05-08 21:35:00.000000000 -0500
++++ sound/usb/usb_audio_qmi_svc.c	2017-03-12 21:44:10.000000000 -0500
+@@ -457,7 +444,7 @@
+ {
+ 	struct uaudio_dev *dev = container_of(kref, struct uaudio_dev, kref);
+ 
+-	pr_debug("%s for dev %pK\n", __func__, dev);
++	pr_debug("%s for dev %p\n", __func__, dev);
+ 
+ 	atomic_set(&dev->in_use, 0);
+ 

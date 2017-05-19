@@ -1,0 +1,10 @@
+--- sound/soc/msm/qdsp6v2/msm-ds2-dap-config.c	2017-05-08 21:35:00.000000000 -0500
++++ sound/soc/msm/qdsp6v2/msm-ds2-dap-config.c	2017-03-12 21:44:10.000000000 -0500
+@@ -1642,7 +1641,6 @@
+ 		ret = 0;
+ 		dolby_data->length = 0;
+ 		pr_err("%s Incorrect VCNB length", __func__);
+-		return -EINVAL;
+ 	}
+ 
+ 	params_length = (2*length + DOLBY_VIS_PARAM_HEADER_SIZE) *

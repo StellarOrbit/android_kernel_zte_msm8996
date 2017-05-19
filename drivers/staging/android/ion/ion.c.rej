@@ -1,0 +1,41 @@
+--- drivers/staging/android/ion/ion.c	2017-03-12 21:44:09.000000000 -0500
++++ drivers/staging/android/ion/ion.c	2017-05-08 21:34:58.000000000 -0500
+@@ -608,6 +612,8 @@
+ 		return handle;
+ 
+ 	mutex_lock(&client->lock);
++	if (grab_handle)
++		ion_handle_get(handle);
+ 	ret = ion_handle_add(client, handle);
+ 	mutex_unlock(&client->lock);
+ 	if (ret) {
+@@ -1499,10 +1512,10 @@
+ 	{
+ 		struct ion_handle *handle;
+ 
+-		handle = ion_alloc(client, data.allocation.len,
++		handle = __ion_alloc(client, data.allocation.len,
+ 						data.allocation.align,
+ 						data.allocation.heap_id_mask,
+-						data.allocation.flags);
++						data.allocation.flags, true);
+ 		if (IS_ERR(handle))
+ 			return PTR_ERR(handle);
+ 
+@@ -1579,11 +1592,15 @@
+ 
+ 	if (dir & _IOC_READ) {
+ 		if (copy_to_user((void __user *)arg, &data, _IOC_SIZE(cmd))) {
+-			if (cleanup_handle)
++			if (cleanup_handle) {
+ 				ion_free(client, cleanup_handle);
++				ion_handle_put(cleanup_handle);
++			}
+ 			return -EFAULT;
+ 		}
+ 	}
++	if (cleanup_handle)
++		ion_handle_put(cleanup_handle);
+ 	return ret;
+ }
+ 

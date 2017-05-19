@@ -1,0 +1,11 @@
+--- drivers/usb/gadget/function/u_data_hsic.c	2017-05-08 21:34:59.000000000 -0500
++++ drivers/usb/gadget/function/u_data_hsic.c	2017-03-12 21:44:09.000000000 -0500
+@@ -508,7 +508,7 @@
+ 	spin_lock_irqsave(&port->tx_lock, flags);
+ 	ep_in = port->in;
+ 	spin_unlock_irqrestore(&port->tx_lock, flags);
+-	pr_debug("%s: ep_in:%pK\n", __func__, ep_in);
++	pr_debug("%s: ep_in:%p\n", __func__, ep_in);
+ 
+ 	if (!ep_in) {
+ 		spin_lock_irqsave(&port->rx_lock, flags);

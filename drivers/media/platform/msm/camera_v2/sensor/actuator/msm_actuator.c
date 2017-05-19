@@ -1396,7 +1396,7 @@ static int32_t msm_actuator_config(struct msm_actuator_ctrl_t *a_ctrl,
 {
 	struct msm_actuator_cfg_data *cdata =
 		(struct msm_actuator_cfg_data *)argp;
-	int32_t rc = -EINVAL;
+	int32_t rc = 0;
 	mutex_lock(a_ctrl->actuator_mutex);
 	CDBG("Enter\n");
 	CDBG("%s type %d\n", __func__, cdata->cfgtype);
@@ -1406,7 +1406,7 @@ static int32_t msm_actuator_config(struct msm_actuator_ctrl_t *a_ctrl,
 		a_ctrl->actuator_state == ACT_DISABLE_STATE) {
 		pr_err("actuator disabled %d\n", rc);
 		mutex_unlock(a_ctrl->actuator_mutex);
-		return rc;
+		return -EINVAL;
 	}
 
 	switch (cdata->cfgtype) {
@@ -1418,7 +1418,6 @@ static int32_t msm_actuator_config(struct msm_actuator_ctrl_t *a_ctrl,
 	case CFG_GET_ACTUATOR_INFO:
 		cdata->is_af_supported = 1;
 		cdata->cfg.cam_name = a_ctrl->cam_name;
-		rc = 0;
 		break;
 
 	case CFG_SET_ACTUATOR_INFO:

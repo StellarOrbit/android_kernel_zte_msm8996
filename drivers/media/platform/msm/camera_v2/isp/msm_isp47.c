@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -151,6 +151,18 @@ static struct msm_bus_scale_pdata msm_isp_bus_client_pdata = {
 	ARRAY_SIZE(msm_isp_bus_client_config),
 	.name = "msm_camera_isp",
 };
+
+uint32_t msm_vfe47_ub_reg_offset(struct vfe_device *vfe_dev, int wm_idx)
+{
+	return (VFE47_WM_BASE(wm_idx) + 0x18);
+}
+
+uint32_t msm_vfe47_get_ub_size(struct vfe_device *vfe_dev)
+{
+	if (vfe_dev->pdev->id == ISP_VFE0)
+		return MSM_ISP47_TOTAL_IMAGE_UB_VFE0;
+	return MSM_ISP47_TOTAL_IMAGE_UB_VFE1;
+}
 
 uint32_t msm_vfe47_ub_reg_offset(struct vfe_device *vfe_dev, int wm_idx)
 {
@@ -666,6 +678,13 @@ void msm_vfe47_process_epoch_irq(struct vfe_device *vfe_dev,
 				vfe_dev, VFE_PIX_0);
 		}
 	}
+}
+
+void msm_isp47_process_eof_irq(struct vfe_device *vfe_dev,
+	uint32_t irq_status0)
+{
+	if (irq_status0 & BIT(1))
+		vfe_dev->axi_data.src_info[VFE_PIX_0].eof_id++;
 }
 
 void msm_isp47_process_eof_irq(struct vfe_device *vfe_dev,
@@ -2584,6 +2603,8 @@ int msm_vfe47_enable_regulators(struct vfe_device *vfe_dev, int enable)
 int msm_vfe47_get_platform_data(struct vfe_device *vfe_dev)
 {
 	int rc = 0;
+	void __iomem *vfe_fuse_base;
+	uint32_t vfe_fuse_base_size;
 
 	vfe_dev->vfe_base = msm_camera_get_reg_base(vfe_dev->pdev, "vfe", 0);
 	if (!vfe_dev->vfe_base)
@@ -2608,7 +2629,18 @@ int msm_vfe47_get_platform_data(struct vfe_device *vfe_dev)
 		rc = -ENOMEM;
 		goto get_res_fail;
 	}
-
+	vfe_dev->vfe_hw_limit = 0;
+	vfe_fuse_base = msm_camera_get_reg_base(vfe_dev->pdev,
+					"vfe_fuse", 0);
+	vfe_fuse_base_size = msm_camera_get_res_size(vfe_dev->pdev,
+						"vfe_fuse");
+	if (vfe_fuse_base) {
+		if (vfe_fuse_base_size)
+			vfe_dev->vfe_hw_limit =
+				(msm_camera_io_r(vfe_fuse_base) >> 7) & 0x3;
+		msm_camera_put_reg_base(vfe_dev->pdev, vfe_fuse_base,
+				"vfe_fuse", 0);
+	}
 	rc = vfe_dev->hw_info->vfe_ops.platform_ops.get_regulators(vfe_dev);
 	if (rc)
 		goto get_regulator_fail;

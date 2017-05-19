@@ -833,8 +833,6 @@ static int pp_gamut_set_config(char __iomem *base_addr,
 	struct mdp_gamut_cfg_data *gamut_cfg_data = NULL;
 	struct mdp_gamut_data_v1_7 *gamut_data = NULL;
 	char __iomem *base_addr_scale = base_addr;
-	uint64_t gamut_val;
-
 	if (!base_addr || !cfg_data || !pp_sts) {
 		pr_err("invalid params base_addr %pK cfg_data %pK pp_sts_type %pK\n",
 		      base_addr, cfg_data, pp_sts);

@@ -1,0 +1,11 @@
+--- drivers/nfc/pn5xx_i2c.c	2017-03-12 21:44:08.000000000 -0500
++++ drivers/nfc/pn5xx_i2c.c	2017-05-08 21:34:58.000000000 -0500
+@@ -71,7 +71,7 @@
+ *#define pr_debug NFC_DBG_MSG
+ *#define pr_warning NFC_DBG_MSG
+ */
+-#define DBG_MODULE 1
++#define DBG_MODULE 0
+ #if DBG_MODULE
+ #define NFC_DBG_MSG(fmt, msg...) pr_err(" %s: "fmt, __func__, ##msg)
+ #else

@@ -1,0 +1,50 @@
+--- drivers/gpu/msm/adreno_a5xx.c	2017-03-12 21:44:07.000000000 -0500
++++ drivers/gpu/msm/adreno_a5xx.c	2017-05-08 21:34:57.000000000 -0500
+@@ -244,12 +244,13 @@
+ 
+ 	ret = kgsl_allocate_global(&adreno_dev->dev,
+ 					&crit_pkts, PAGE_SIZE,
+-					KGSL_MEMFLAGS_GPUREADONLY, 0);
++					KGSL_MEMFLAGS_GPUREADONLY,
++					0, "crit_pkts");
+ 	if (ret)
+ 		return ret;
+ 
+ 	ret = kgsl_allocate_user(&adreno_dev->dev, &crit_pkts_refbuf0,
+-					NULL, PAGE_SIZE, KGSL_MEMFLAGS_SECURE);
++		PAGE_SIZE, KGSL_MEMFLAGS_SECURE);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -258,19 +259,19 @@
+ 
+ 	ret = kgsl_allocate_global(&adreno_dev->dev,
+ 					&crit_pkts_refbuf1,
+-					PAGE_SIZE, 0, 0);
++					PAGE_SIZE, 0, 0, "crit_pkts_refbuf1");
+ 	if (ret)
+ 		return ret;
+ 
+ 	ret = kgsl_allocate_global(&adreno_dev->dev,
+ 					&crit_pkts_refbuf2,
+-					PAGE_SIZE, 0, 0);
++					PAGE_SIZE, 0, 0, "crit_pkts_refbuf2");
+ 	if (ret)
+ 		return ret;
+ 
+ 	ret = kgsl_allocate_global(&adreno_dev->dev,
+ 					&crit_pkts_refbuf3,
+-					PAGE_SIZE, 0, 0);
++					PAGE_SIZE, 0, 0, "crit_pkts_refbuf3");
+ 	if (ret)
+ 		return ret;
+ 
+@@ -2461,7 +2462,7 @@
+ 	}
+ 
+ 	ret = kgsl_allocate_global(device, ucode, fw->size - 4,
+-				KGSL_MEMFLAGS_GPUREADONLY, 0);
++				KGSL_MEMFLAGS_GPUREADONLY, 0, "ucode");
+ 
+ 	if (ret)
+ 		goto done;

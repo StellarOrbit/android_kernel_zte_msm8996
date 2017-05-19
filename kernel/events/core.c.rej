@@ -1,0 +1,346 @@
+--- kernel/events/core.c	2017-03-12 21:44:10.000000000 -0500
++++ kernel/events/core.c	2017-05-08 21:34:59.000000000 -0500
+@@ -1451,10 +1522,17 @@
+ 	 * If this was a group event with sibling events then
+ 	 * upgrade the siblings to singleton events by adding them
+ 	 * to whatever list we are on.
++	 * If this isn't on a list, make sure we still remove the sibling's
++	 * group_entry from this sibling_list; otherwise, when that sibling
++	 * is later deallocated, it will try to remove itself from this
++	 * sibling_list, which may well have been deallocated already,
++	 * resulting in a use-after-free.
+ 	 */
+ 	list_for_each_entry_safe(sibling, tmp, &event->sibling_list, group_entry) {
+ 		if (list)
+ 			list_move_tail(&sibling->group_entry, list);
++		else
++			list_del_init(&sibling->group_entry);
+ 		sibling->group_leader = sibling;
+ 
+ 		/* Inherit group flags from the previous leader */
+@@ -2308,9 +2399,21 @@
+ out:
+ 	raw_spin_unlock_irq(&ctx->lock);
+ }
++
++/*
++ * See perf_event_disable();
++ */
++void perf_event_enable(struct perf_event *event)
++{
++	struct perf_event_context *ctx;
++
++	ctx = perf_event_ctx_lock(event);
++	_perf_event_enable(event);
++	perf_event_ctx_unlock(event, ctx);
++}
+ EXPORT_SYMBOL_GPL(perf_event_enable);
+ 
+-int perf_event_refresh(struct perf_event *event, int refresh)
++static int _perf_event_refresh(struct perf_event *event, int refresh)
+ {
+ 	/*
+ 	 * not supported on inherited events
+@@ -2319,10 +2422,25 @@
+ 		return -EINVAL;
+ 
+ 	atomic_add(refresh, &event->event_limit);
+-	perf_event_enable(event);
++	_perf_event_enable(event);
+ 
+ 	return 0;
+ }
++
++/*
++ * See perf_event_disable()
++ */
++int perf_event_refresh(struct perf_event *event, int refresh)
++{
++	struct perf_event_context *ctx;
++	int ret;
++
++	ctx = perf_event_ctx_lock(event);
++	ret = _perf_event_refresh(event, refresh);
++	perf_event_ctx_unlock(event, ctx);
++
++	return ret;
++}
+ EXPORT_SYMBOL_GPL(perf_event_refresh);
+ 
+ static void ctx_sched_out(struct perf_event_context *ctx,
+@@ -3520,7 +3638,16 @@
+ 	rcu_read_unlock();
+ 
+ 	if (owner) {
+-		mutex_lock(&owner->perf_event_mutex);
++		/*
++		 * If we're here through perf_event_exit_task() we're already
++		 * holding ctx->mutex which would be an inversion wrt. the
++		 * normal lock order.
++		 *
++		 * However we can safely take this lock because its the child
++		 * ctx->mutex.
++		 */
++		mutex_lock_nested(&owner->perf_event_mutex, SINGLE_DEPTH_NESTING);
++
+ 		/*
+ 		 * We have to re-check the event->owner field, if it is cleared
+ 		 * we raced with perf_event_exit_task(), acquiring the mutex
+@@ -3655,12 +3782,13 @@
+ 				   u64 read_format, char __user *buf)
+ {
+ 	struct perf_event *leader = event->group_leader, *sub;
+-	int n = 0, size = 0, ret = -EFAULT;
+ 	struct perf_event_context *ctx = leader->ctx;
+-	u64 values[5];
++	int n = 0, size = 0, ret;
+ 	u64 count, enabled, running;
++	u64 values[5];
++
++	lockdep_assert_held(&ctx->mutex);
+ 
+-	mutex_lock(&ctx->mutex);
+ 	count = perf_event_read_value(leader, &enabled, &running);
+ 
+ 	values[n++] = 1 + leader->nr_siblings;
+@@ -3675,7 +3803,7 @@
+ 	size = n * sizeof(u64);
+ 
+ 	if (copy_to_user(buf, values, size))
+-		goto unlock;
++		return -EFAULT;
+ 
+ 	ret = size;
+ 
+@@ -3689,14 +3817,11 @@
+ 		size = n * sizeof(u64);
+ 
+ 		if (copy_to_user(buf + ret, values, size)) {
+-			ret = -EFAULT;
+-			goto unlock;
++			return -EFAULT;
+ 		}
+ 
+ 		ret += size;
+ 	}
+-unlock:
+-	mutex_unlock(&ctx->mutex);
+ 
+ 	return ret;
+ }
+@@ -3768,8 +3893,14 @@
+ perf_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
+ {
+ 	struct perf_event *event = file->private_data;
++	struct perf_event_context *ctx;
++	int ret;
++
++	ctx = perf_event_ctx_lock(event);
++	ret = perf_read_hw(event, buf, count);
++	perf_event_ctx_unlock(event, ctx);
+ 
+-	return perf_read_hw(event, buf, count);
++	return ret;
+ }
+ 
+ static unsigned int perf_poll(struct file *file, poll_table *wait)
+@@ -3795,7 +3926,7 @@
+ 	return events;
+ }
+ 
+-static void perf_event_reset(struct perf_event *event)
++static void _perf_event_reset(struct perf_event *event)
+ {
+ 	(void)perf_event_read(event);
+ 	local64_set(&event->count, 0);
+@@ -3814,6 +3945,7 @@
+ 	struct perf_event *child;
+ 
+ 	WARN_ON_ONCE(event->ctx->parent_ctx);
++
+ 	mutex_lock(&event->child_mutex);
+ 	func(event);
+ 	list_for_each_entry(child, &event->child_list, child_list)
+@@ -3827,14 +3959,13 @@
+ 	struct perf_event_context *ctx = event->ctx;
+ 	struct perf_event *sibling;
+ 
+-	WARN_ON_ONCE(ctx->parent_ctx);
+-	mutex_lock(&ctx->mutex);
++	lockdep_assert_held(&ctx->mutex);
++
+ 	event = event->group_leader;
+ 
+ 	perf_event_for_each_child(event, func);
+ 	list_for_each_entry(sibling, &event->sibling_list, group_entry)
+ 		perf_event_for_each_child(sibling, func);
+-	mutex_unlock(&ctx->mutex);
+ }
+ 
+ struct period_event {
+@@ -3939,25 +4070,24 @@
+ 				 struct perf_event *output_event);
+ static int perf_event_set_filter(struct perf_event *event, void __user *arg);
+ 
+-static long perf_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
++static long _perf_ioctl(struct perf_event *event, unsigned int cmd, unsigned long arg)
+ {
+-	struct perf_event *event = file->private_data;
+ 	void (*func)(struct perf_event *);
+ 	u32 flags = arg;
+ 
+ 	switch (cmd) {
+ 	case PERF_EVENT_IOC_ENABLE:
+-		func = perf_event_enable;
++		func = _perf_event_enable;
+ 		break;
+ 	case PERF_EVENT_IOC_DISABLE:
+-		func = perf_event_disable;
++		func = _perf_event_disable;
+ 		break;
+ 	case PERF_EVENT_IOC_RESET:
+-		func = perf_event_reset;
++		func = _perf_event_reset;
+ 		break;
+ 
+ 	case PERF_EVENT_IOC_REFRESH:
+-		return perf_event_refresh(event, arg);
++		return _perf_event_refresh(event, arg);
+ 
+ 	case PERF_EVENT_IOC_PERIOD:
+ 		return perf_event_period(event, (u64 __user *)arg);
+@@ -4039,11 +4182,15 @@
+ 
+ int perf_event_task_enable(void)
+ {
++	struct perf_event_context *ctx;
+ 	struct perf_event *event;
+ 
+ 	mutex_lock(&current->perf_event_mutex);
+-	list_for_each_entry(event, &current->perf_event_list, owner_entry)
+-		perf_event_for_each_child(event, perf_event_enable);
++	list_for_each_entry(event, &current->perf_event_list, owner_entry) {
++		ctx = perf_event_ctx_lock(event);
++		perf_event_for_each_child(event, _perf_event_enable);
++		perf_event_ctx_unlock(event, ctx);
++	}
+ 	mutex_unlock(&current->perf_event_mutex);
+ 
+ 	return 0;
+@@ -4051,11 +4198,15 @@
+ 
+ int perf_event_task_disable(void)
+ {
++	struct perf_event_context *ctx;
+ 	struct perf_event *event;
+ 
+ 	mutex_lock(&current->perf_event_mutex);
+-	list_for_each_entry(event, &current->perf_event_list, owner_entry)
+-		perf_event_for_each_child(event, perf_event_disable);
++	list_for_each_entry(event, &current->perf_event_list, owner_entry) {
++		ctx = perf_event_ctx_lock(event);
++		perf_event_for_each_child(event, _perf_event_disable);
++		perf_event_ctx_unlock(event, ctx);
++	}
+ 	mutex_unlock(&current->perf_event_mutex);
+ 
+ 	return 0;
+@@ -7095,6 +7246,7 @@
+ 	if (!group_leader)
+ 		group_leader = event;
+ 
++	mutex_init(&event->group_leader_mutex);
+ 	mutex_init(&event->child_mutex);
+ 	INIT_LIST_HEAD(&event->child_list);
+ 
+@@ -7395,7 +7556,7 @@
+ 	struct perf_event *group_leader = NULL, *output_event = NULL;
+ 	struct perf_event *event, *sibling;
+ 	struct perf_event_attr attr;
+-	struct perf_event_context *ctx;
++	struct perf_event_context *ctx, *uninitialized_var(gctx);
+ 	struct file *event_file = NULL;
+ 	struct fd group = {NULL, 0};
+ 	struct task_struct *task = NULL;
+@@ -7609,9 +7780,14 @@
+ 	}
+ 
+ 	if (move_group) {
+-		struct perf_event_context *gctx = group_leader->ctx;
++		gctx = group_leader->ctx;
++
++		/*
++		 * See perf_event_ctx_lock() for comments on the details
++		 * of swizzling perf_event::ctx.
++		 */
++		mutex_lock_double(&gctx->mutex, &ctx->mutex);
+ 
+-		mutex_lock(&gctx->mutex);
+ 		perf_remove_from_context(group_leader, false);
+ 
+ 		/*
+@@ -7626,15 +7802,19 @@
+ 			perf_event__state_init(sibling);
+ 			put_ctx(gctx);
+ 		}
+-		mutex_unlock(&gctx->mutex);
+-		put_ctx(gctx);
++	} else {
++		mutex_lock(&ctx->mutex);
+ 	}
+ 
+ 	WARN_ON_ONCE(ctx->parent_ctx);
+-	mutex_lock(&ctx->mutex);
+ 
+ 	if (move_group) {
++		/*
++		 * Wait for everybody to stop referencing the events through
++		 * the old lists, before installing it on new lists.
++		 */
+ 		synchronize_rcu();
++
+ 		perf_install_in_context(ctx, group_leader, group_leader->cpu);
+ 		get_ctx(ctx);
+ 		list_for_each_entry(sibling, &group_leader->sibling_list,
+@@ -7690,6 +7877,8 @@
+ 	if (task)
+ 		put_task_struct(task);
+ err_group_fd:
++	if (group_leader)
++		mutex_unlock(&group_leader->group_leader_mutex);
+ 	fdput(group);
+ err_fd:
+ 	put_unused_fd(event_fd);
+@@ -7760,7 +7949,11 @@
+ 	src_ctx = &per_cpu_ptr(pmu->pmu_cpu_context, src_cpu)->ctx;
+ 	dst_ctx = &per_cpu_ptr(pmu->pmu_cpu_context, dst_cpu)->ctx;
+ 
+-	mutex_lock(&src_ctx->mutex);
++	/*
++	 * See perf_event_ctx_lock() for comments on the details
++	 * of swizzling perf_event::ctx.
++	 */
++	mutex_lock_double(&src_ctx->mutex, &dst_ctx->mutex);
+ 	list_for_each_entry_safe(event, tmp, &src_ctx->event_list,
+ 				 event_entry) {
+ 		perf_remove_from_context(event, false);
+@@ -7768,11 +7961,9 @@
+ 		put_ctx(src_ctx);
+ 		list_add(&event->migrate_entry, &events);
+ 	}
+-	mutex_unlock(&src_ctx->mutex);
+ 
+ 	synchronize_rcu();
+ 
+-	mutex_lock(&dst_ctx->mutex);
+ 	list_for_each_entry_safe(event, tmp, &events, migrate_entry) {
+ 		list_del(&event->migrate_entry);
+ 		if (event->state >= PERF_EVENT_STATE_OFF)
+@@ -7782,6 +7973,7 @@
+ 		get_ctx(dst_ctx);
+ 	}
+ 	mutex_unlock(&dst_ctx->mutex);
++	mutex_unlock(&src_ctx->mutex);
+ }
+ EXPORT_SYMBOL_GPL(perf_pmu_migrate_context);
+ 

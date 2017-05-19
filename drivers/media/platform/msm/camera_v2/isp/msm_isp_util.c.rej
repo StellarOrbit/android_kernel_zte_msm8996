@@ -1,0 +1,13 @@
+--- drivers/media/platform/msm/camera_v2/isp/msm_isp_util.c	2017-03-12 21:44:07.000000000 -0500
++++ drivers/media/platform/msm/camera_v2/isp/msm_isp_util.c	2017-05-08 21:34:57.000000000 -0500
+@@ -1923,6 +1951,10 @@
+ 	}
+ 	ping_pong_status = vfe_dev->hw_info->vfe_ops.axi_ops.
+ 		get_pingpong_status(vfe_dev);
++	if (vfe_dev->hw_info->vfe_ops.irq_ops.process_eof_irq) {
++		vfe_dev->hw_info->vfe_ops.irq_ops.process_eof_irq(vfe_dev,
++			irq_status0);
++	}
+ 	msm_isp_process_overflow_irq(vfe_dev,
+ 		&irq_status0, &irq_status1, 0);
+ 

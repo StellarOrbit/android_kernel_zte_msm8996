@@ -24,6 +24,10 @@
 #ifdef CONFIG_AK4961_CODEC
 #include <linux/mfd/ak49xx/ak4961_registers.h>
 #endif
+#ifdef CONFIG_AK4962_CODEC
+#include <linux/mfd/ak49xx/ak4962_registers.h>
+#endif
+
 #include <linux/delay.h>
 #include <linux/irqdomain.h>
 #include <linux/interrupt.h>
@@ -279,6 +283,7 @@ static irqreturn_t ak49xx_irq_thread(int irq, void *data)
 	/* Find out which interrupt was triggered and call that interrupt's
 	 * handler function
 	 */
+#ifdef CONFIG_AK4961_CODEC
 	if (status[BIT_BYTE(AK4961_IRQ_JDE)] &
 	    BYTE_BIT_MASK(AK4961_IRQ_JDE))
 		ak49xx_irq_dispatch(ak49xx_res, AK4961_IRQ_JDE);
@@ -333,7 +338,7 @@ int ak49xx_irq_init(struct ak49xx_core_resource *ak49xx_res)
 	pr_debug("%s: probed irq %d\n", __func__, ak49xx_res->irq);
 
 	/* Mask the individual interrupt sources */
-	for (i = 0; i < AK4961_NUM_IRQS; i++) {
+	for (i = 0; i < AK49XX_MAX_NUM_IRQS; i++) {
 		/* Map OF irq */
 		virq = ak49xx_map_irq(ak49xx_res, i);
 		pr_debug("%s: irq %d -> %d\n", __func__, i, virq);

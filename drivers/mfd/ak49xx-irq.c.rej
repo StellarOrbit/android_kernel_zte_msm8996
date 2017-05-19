@@ -1,0 +1,71 @@
+--- drivers/mfd/ak49xx-irq.c	2017-03-12 21:44:07.000000000 -0500
++++ drivers/mfd/ak49xx-irq.c	2017-05-08 21:34:57.000000000 -0500
+@@ -55,7 +59,7 @@
+ 	struct pinctrl *pinctrl;
+ 	struct pinctrl_state *cdc_int_cfg;
+ 	int es804_rst_gpio;
+-	int es804_ldo_gpio;
++	/*int es804_ldo_gpio;*/
+ };
+ #endif
+ 
+@@ -71,10 +75,18 @@
+ 	bool level;
+ };
+ 
+-static struct ak49xx_irq ak49xx_irqs[AK4961_NUM_IRQS] = {
++#ifdef CONFIG_AK4961_CODEC
++static struct ak49xx_irq ak49xx_irqs[AK49XX_MAX_NUM_IRQS] = {
++	/* [0] = { .level = 1}, */
++	/* All other ak49xx interrupts are edge triggered */
++};
++#endif
++#ifdef CONFIG_AK4962_CODEC
++static struct ak49xx_irq ak49xx_irqs[AK49XX_MAX_NUM_IRQS] = {
+ 	/* [0] = { .level = 1}, */
+ 	/* All other ak49xx interrupts are edge triggered */
+ };
++#endif
+ 
+ static int virq_to_phyirq(
+ 	struct ak49xx_core_resource *ak49xx_res, int virq);
+@@ -257,7 +269,9 @@
+ 
+ /* ZTE_chenjun */
+ 	if (ret == 0) {
++#ifdef CONFIG_AK4961_CODEC
+ 	    ak49xx_res->codec_reg_write(ak49xx_res,DETECTION_EVENT_RESET, 0x01);
++#endif
+ 	    pr_err("[LHS] %s , line%d , no JDE at all !\n",__func__,__LINE__);
+ 	    ak49xx_unlock_sleep(ak49xx_res);
+ 	    return IRQ_NONE;
+@@ -279,12 +294,27 @@
+ 		BYTE_BIT_MASK(AK4961_IRQ_RCE))
+ 		ak49xx_irq_dispatch(ak49xx_res, AK4961_IRQ_RCE);
+ 
+-#ifdef CONFIG_AK4961_CODEC
+ 	if (status[BIT_BYTE(AK4961_IRQ_VAD)] &
+ 		BYTE_BIT_MASK(AK4961_IRQ_VAD))
+ 		ak49xx_irq_dispatch(ak49xx_res, AK4961_IRQ_VAD);
+ #endif
+-
++#ifdef CONFIG_AK4962_CODEC
++	if (status[BIT_BYTE(AK4962_IRQ_JDE)] &
++	    BYTE_BIT_MASK(AK4962_IRQ_JDE))
++		ak49xx_irq_dispatch(ak49xx_res, AK4962_IRQ_JDE);
++
++	if (status[BIT_BYTE(AK4962_IRQ_IDE)] &
++		BYTE_BIT_MASK(AK4962_IRQ_IDE))
++		ak49xx_irq_dispatch(ak49xx_res, AK4962_IRQ_IDE);
++
++	if (status[BIT_BYTE(AK4962_IRQ_MICE)] &
++		BYTE_BIT_MASK(AK4962_IRQ_MICE))
++		ak49xx_irq_dispatch(ak49xx_res, AK4962_IRQ_MICE);
++
++	if (status[BIT_BYTE(AK4962_IRQ_SARE)] &
++		BYTE_BIT_MASK(AK4962_IRQ_SARE))
++		ak49xx_irq_dispatch(ak49xx_res, AK4962_IRQ_SARE);
++#endif
+ 	ak49xx_unlock_sleep(ak49xx_res);
+ 	return IRQ_HANDLED;
+ }

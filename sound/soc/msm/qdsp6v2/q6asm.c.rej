@@ -1,0 +1,93 @@
+--- sound/soc/msm/qdsp6v2/q6asm.c	2017-05-08 21:35:00.000000000 -0500
++++ sound/soc/msm/qdsp6v2/q6asm.c	2017-03-12 21:44:10.000000000 -0500
+@@ -1691,30 +1689,15 @@
+ 				pr_err("%s: cmd = 0x%x returned error = 0x%x\n",
+ 					__func__, payload[0], payload[1]);
+ 				if (wakeup_flag) {
+-					if (payload[0] ==
+-						ASM_STREAM_CMD_SET_PP_PARAMS_V2)
+-						atomic_set(&ac->cmd_state_pp,
+-								payload[1]);
+-					else
+-						atomic_set(&ac->cmd_state,
+-								payload[1]);
++					atomic_set(&ac->cmd_state, payload[1]);
+ 					wake_up(&ac->cmd_wait);
+ 				}
+ 				return 0;
+ 			}
+-			if (payload[0] == ASM_STREAM_CMD_SET_PP_PARAMS_V2) {
+-				if (atomic_read(&ac->cmd_state_pp) &&
+-					wakeup_flag) {
+-					atomic_set(&ac->cmd_state_pp, 0);
+-					wake_up(&ac->cmd_wait);
+-				}
+-			} else {
+-				if (atomic_read(&ac->cmd_state) &&
+-					wakeup_flag) {
++			if (atomic_read(&ac->cmd_state) && wakeup_flag) {
+ 				atomic_set(&ac->cmd_state, 0);
+ 				wake_up(&ac->cmd_wait);
+ 			}
+-			}
+ 			if (ac->cb)
+ 				ac->cb(data->opcode, data->token,
+ 					(uint32_t *)data->payload, ac->priv);
+@@ -2950,8 +2933,7 @@
+ 			       int dir)
+ {
+ 	struct audio_buffer *buf_circ;
+-	int bytes_to_alloc, rc;
+-	size_t len;
++	int bytes_to_alloc, rc, len;
+ 
+ 	buf_circ = kzalloc(sizeof(struct audio_buffer), GFP_KERNEL);
+ 
+@@ -2970,7 +2952,7 @@
+ 	rc = msm_audio_ion_alloc("audio_client", &buf_circ->client,
+ 			&buf_circ->handle, bytes_to_alloc,
+ 			(ion_phys_addr_t *)&buf_circ->phys,
+-			&len, &buf_circ->data);
++			(size_t *)&len, &buf_circ->data);
+ 
+ 	if (rc) {
+ 		pr_err("%s: Audio ION alloc is failed, rc = %d\n", __func__,
+@@ -3012,8 +2994,7 @@
+ 			       int dir)
+ {
+ 	struct audio_buffer *buf_pos = &ac->shared_pos_buf;
+-	int rc;
+-	size_t len;
++	int len, rc;
+ 	int bytes_to_alloc = sizeof(struct asm_shared_position_buffer);
+ 
+ 	mutex_lock(&ac->cmd_lock);
+@@ -3022,7 +3003,7 @@
+ 
+ 	rc = msm_audio_ion_alloc("audio_client", &buf_pos->client,
+ 			&buf_pos->handle, bytes_to_alloc,
+-			(ion_phys_addr_t *)&buf_pos->phys, &len,
++			(ion_phys_addr_t *)&buf_pos->phys, (size_t *)&len,
+ 			&buf_pos->data);
+ 
+ 	if (rc) {
+@@ -5786,16 +5767,16 @@
+ 	}
+ 
+ 	rc = wait_event_timeout(ac->cmd_wait,
+-			(atomic_read(&ac->cmd_state_pp) >= 0), 5*HZ);
++			(atomic_read(&ac->cmd_state) <= 0), 5*HZ);
+ 	if (!rc) {
+ 		pr_err("%s: timeout, set-params paramid[0x%x]\n", __func__,
+ 				multich_gain.data.param_id);
+ 		rc = -EINVAL;
+ 		goto done;
+ 	}
+-	if (atomic_read(&ac->cmd_state_pp) > 0) {
++	if (atomic_read(&ac->cmd_state) < 0) {
+ 		pr_err("%s: DSP returned error[%d] , set-params paramid[0x%x]\n",
+-		       __func__, atomic_read(&ac->cmd_state_pp),
++					__func__, atomic_read(&ac->cmd_state),
+ 					multich_gain.data.param_id);
+ 		rc = -EINVAL;
+ 		goto done;

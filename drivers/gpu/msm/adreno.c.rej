@@ -1,0 +1,12 @@
+--- drivers/gpu/msm/adreno.c	2017-03-12 21:44:07.000000000 -0500
++++ drivers/gpu/msm/adreno.c	2017-05-08 21:34:57.000000000 -0500
+@@ -1218,7 +1225,8 @@
+ 
+ 	if (!adreno_is_a3xx(adreno_dev)) {
+ 		int r = kgsl_allocate_global(device,
+-			&adreno_dev->cmdbatch_profile_buffer, PAGE_SIZE, 0, 0);
++			&adreno_dev->cmdbatch_profile_buffer, PAGE_SIZE,
++			0, 0, "alwayson");
+ 
+ 		adreno_dev->cmdbatch_profile_index = 0;
+ 

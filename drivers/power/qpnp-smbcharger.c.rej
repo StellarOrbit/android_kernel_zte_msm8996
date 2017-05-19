@@ -1,0 +1,36 @@
+--- drivers/power/qpnp-smbcharger.c	2017-03-12 21:44:08.000000000 -0500
++++ drivers/power/qpnp-smbcharger.c	2017-05-08 21:34:58.000000000 -0500
+@@ -9083,17 +9106,32 @@
+ 	/*zte add for update heartbeat work end*/
+ 	zte_chip =	chip;
+ 	
+-#if 1	
+ 		rc = zte_read_s3_type(&s3_src_reg);
+ 		if (rc) {
+ 			dev_err(&spmi->dev, "Unable to program s3 source rc: %d\n", rc);
+ 			return rc;
+ 		}
+ 		dev_info(&spmi->dev, "s3_src_reg: %d\n", s3_src_reg);
++
++#ifdef ZTE_AILSA_II_VR
++	pr_info("ZTE_AILSA_II_VR defined\n");
+ 		if (s3_src_reg != 2)
+ 			smb_set_shipmode();
++#else
++	pr_info("ZTE_AILSA_II_VR not defined\n");
++	if (s3_src_reg != 0)
++		smb_set_shipmode();
+ #endif
+ 
++	chip->last_enable_to_shutdown_status = -1;
++	type = get_type(reg);
++	pr_info("type:%d,chip->apsd_rerun_config_enable:%d\n", type, chip->apsd_rerun_config_enable);
++	if (((type == 0) || (type == 4)) && chip->apsd_rerun_config_enable) {
++		pr_info("rerun apsd\n");
++		chip->last_enable_to_shutdown_status = enable_to_shutdown;
++		enable_to_shutdown = 0;
++		smbchg_apsd_rerun(chip);
++	}
+ 	return 0;
+ 
+ unregister_led_class:

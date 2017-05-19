@@ -1,0 +1,14 @@
+--- drivers/mmc/core/sd.c	2017-05-08 21:34:57.000000000 -0500
++++ drivers/mmc/core/sd.c	2017-03-12 21:44:07.000000000 -0500
+@@ -1355,11 +1351,6 @@
+ 	mmc_claim_host(host);
+ 	ret = mmc_sd_init_card(host, host->card->ocr, host->card);
+ 	mmc_release_host(host);
+-	if (ret) {
+-		pr_err("%s: %s: mmc_sd_init_card_failed (%d)\n",
+-				mmc_hostname(host), __func__, ret);
+-		return ret;
+-	}
+ 
+ 	ret = mmc_resume_clk_scaling(host);
+ 	if (ret)

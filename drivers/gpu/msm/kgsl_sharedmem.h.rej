@@ -1,0 +1,32 @@
+--- drivers/gpu/msm/kgsl_sharedmem.h	2017-03-12 21:44:07.000000000 -0500
++++ drivers/gpu/msm/kgsl_sharedmem.h	2017-05-08 21:34:57.000000000 -0500
+@@ -261,7 +259,7 @@
+  */
+ static inline int kgsl_allocate_global(struct kgsl_device *device,
+ 	struct kgsl_memdesc *memdesc, uint64_t size, uint64_t flags,
+-	unsigned int priv)
++	unsigned int priv, const char *name)
+ {
+ 	int ret;
+ 
+@@ -269,17 +267,16 @@
+ 	memdesc->priv = priv;
+ 
+ 	if ((memdesc->priv & KGSL_MEMDESC_CONTIG) != 0)
+-		ret = kgsl_sharedmem_alloc_contig(device, memdesc, NULL,
++		ret = kgsl_sharedmem_alloc_contig(device, memdesc,
+ 						(size_t) size);
+ 	else {
+-		ret = kgsl_sharedmem_page_alloc_user(memdesc, NULL,
+-						(size_t) size);
++		ret = kgsl_sharedmem_page_alloc_user(memdesc, (size_t) size);
+ 		if (ret == 0)
+ 			kgsl_memdesc_map(memdesc);
+ 	}
+ 
+ 	if (ret == 0)
+-		kgsl_mmu_add_global(device, memdesc);
++		kgsl_mmu_add_global(device, memdesc, name);
+ 
+ 	return ret;
+ }

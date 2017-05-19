@@ -1,0 +1,18 @@
+--- drivers/gpu/msm/kgsl.c	2017-03-12 21:44:07.000000000 -0500
++++ drivers/gpu/msm/kgsl.c	2017-05-08 21:34:57.000000000 -0500
+@@ -3914,13 +3875,13 @@
+ 		goto error_close_mmu;
+ 
+ 	status = kgsl_allocate_global(device, &device->memstore,
+-		KGSL_MEMSTORE_SIZE, 0, KGSL_MEMDESC_CONTIG);
++		KGSL_MEMSTORE_SIZE, 0, KGSL_MEMDESC_CONTIG, "memstore");
+ 
+ 	if (status != 0)
+ 		goto error_close_mmu;
+ 
+ 	status = kgsl_allocate_global(device, &device->scratch,
+-		PAGE_SIZE, 0, 0);
++		PAGE_SIZE, 0, 0, "scratch");
+ 	if (status != 0)
+ 		goto error_free_memstore;
+ 

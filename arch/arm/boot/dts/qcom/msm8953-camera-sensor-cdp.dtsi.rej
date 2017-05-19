@@ -1,0 +1,22 @@
+--- arch/arm/boot/dts/qcom/msm8953-camera-sensor-cdp.dtsi	2017-03-12 21:44:05.000000000 -0500
++++ arch/arm/boot/dts/qcom/msm8953-camera-sensor-cdp.dtsi	2017-05-08 21:34:55.000000000 -0500
+@@ -254,6 +290,8 @@
+ 		qcom,csiphy-sd-index = <1>;
+ 		qcom,csid-sd-index = <1>;
+ 		qcom,mount-angle = <90>;
++		qcom,eeprom-src = <&eeprom2>;
++		qcom,actuator-src = <&actuator1>;
+ 		cam_vdig-supply = <&pm8953_l23>;
+ 		cam_vana-supply = <&pm8953_l22>;
+ 		cam_vio-supply = <&pm8953_l6>;
+--- arch/arm64/boot/dts/qcom/msm8953-camera-sensor-cdp.dtsi	2017-03-12 21:44:05.000000000 -0500
++++ arch/arm64/boot/dts/qcom/msm8953-camera-sensor-cdp.dtsi	2017-05-08 21:34:55.000000000 -0500
+@@ -254,6 +290,8 @@
+ 		qcom,csiphy-sd-index = <1>;
+ 		qcom,csid-sd-index = <1>;
+ 		qcom,mount-angle = <90>;
++		qcom,eeprom-src = <&eeprom2>;
++		qcom,actuator-src = <&actuator1>;
+ 		cam_vdig-supply = <&pm8953_l23>;
+ 		cam_vana-supply = <&pm8953_l22>;
+ 		cam_vio-supply = <&pm8953_l6>;
