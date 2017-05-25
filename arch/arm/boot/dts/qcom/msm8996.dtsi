@@ -215,12 +215,6 @@
 			compatible = "removed_ramoops_memory";
  			no-map;
 			reg = <0 0xbfc00000 0 0x400000>;
-        };
-		/*add for vlog, by ZTE RIL Platform team */
-		vlog_mem: ap_share_region@bfb00000 {
-			compatible = "removed_vlog_memory";
-			no-map;
-			reg = <0 0xbfb00000 0 0x100000>;
 		};
 
 		cont_splash_mem_hdmi: cont_splash_mem_hdmi@b1c00000 {
@@ -1887,21 +1881,6 @@
 		sd_dump_mode@78 {
 			compatible = "qcom,msm-imem-sd_dump_mode";
 			reg = <0x78 4>;
-		};
-
-		vlog_memory_cookie@B0 {
-			compatible = "qcom,msm-imem-vlog_memory_cookie";
-			reg = <0xB0 4>;
-		};
-		
-		vlog_memory_addr@B4 {
-			compatible = "qcom,msm-imem-vlog_memory_addr";
-			reg = <0xB4 4>;
-		};
-		
-		vlog_memory_size@B8 {
-			compatible = "qcom,msm-imem-vlog_memory_size";
-			reg = <0xB8 4>;
 		};
 
                 hw_ver_id@a0 {
