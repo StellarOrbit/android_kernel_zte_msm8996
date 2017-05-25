@@ -2318,9 +2318,9 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 	int port_idx, copp_idx, flags;
 	int tmp_port = q6audio_get_port_id(port_id);
 
-	pr_err("%s: chenjun: port %#x path:%d rate:%d mode:%d perf_mode:%d,topo_id %#X, bit(%d)\n",
+	pr_debug("%s:port %#x path:%d rate:%d mode:%d perf_mode:%d,topo_id %d\n",
 		 __func__, port_id, path, rate, channel_mode, perf_mode,
-		 topology, bit_width);
+		 topology);
 
 	/* For DTS EAGLE only, force 24 bit */
 	if ((topology == ADM_CMD_COPP_OPEN_TOPOLOGY_ID_DTS_HPX) &&

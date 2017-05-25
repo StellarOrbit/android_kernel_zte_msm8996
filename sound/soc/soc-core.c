@@ -637,7 +637,7 @@ int snd_soc_suspend(struct device *dev)
 	}
 
 // chenjun:NO need suspend
-#if 0
+#ifndef CONFIG_BOARD_AILSA_II
 	/* Recheck all analogue paths too */
 	dapm_mark_io_dirty(&card->dapm);
 	snd_soc_dapm_sync(&card->dapm);
@@ -807,7 +807,7 @@ static void soc_resume_deferred(struct work_struct *work)
 	snd_power_change_state(card->snd_card, SNDRV_CTL_POWER_D0);
 
 // chenjun:NO need suspend
-#if 0
+#ifndef CONFIG_BOARD_AILSA_II
 	/* Recheck all analogue paths too */
 	dapm_mark_io_dirty(&card->dapm);
 	snd_soc_dapm_sync(&card->dapm);
