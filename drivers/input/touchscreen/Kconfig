@@ -13,8 +13,6 @@ if INPUT_TOUCHSCREEN
 
 source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
 #source "drivers/input/touchscreen/synaptics_dsx_2.6/Kconfig"
-source "drivers/input/touchscreen/novatek_touch/Kconfig"
-source "drivers/input/touchscreen/novatek_touch_2nd/Kconfig"
 
 config OF_TOUCHSCREEN
 	def_tristate INPUT

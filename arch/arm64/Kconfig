@@ -352,24 +352,6 @@ config BOARD_AILSA_II
     help
       Support for ZTE MSM8996 AILSA_II device.
 
-config BOARD_BRAVO
-    depends on ARCH_MSM8996
-    bool "ZTE BRAVO"
-    help
-      Support for ZTE MSM8996 BRAVO device.
-
-config BOARD_FUJISAN
-    depends on ARCH_MSM8996
-    bool "ZTE FUJISAN"
-    help
-      Support for ZTE MSM8996 FUJISAN device.
-
-config BOARD_CANDICE
-    depends on ARCH_MSM8996
-    bool "ZTE CANDICE"
-    help
-      Support for ZTE MSM8996 CANDICE device.
-
 endmenu
 
 menu "Bus support"
