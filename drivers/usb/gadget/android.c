@@ -3850,41 +3850,6 @@ functions_show(struct device *pdev, struct device_attribute *attr, char *buf)
 	return buff - buf;
 }
 
-/* TF project, encrypt the DiagPort. */
-#ifdef ZTE_FEATURE_TF_SECURITY_SYSTEM
-extern int is_diag_locked(void);
-static bool is_valid_function(char *functions)
-{
-	char *name;
-
-	while (functions) {
-		name = strsep(&functions, ",");
-		/* rndis, permenant off. */
-		if (!name || strstr(name,"rndis")) {
-			printk(KERN_ERR"zh: %s is not valid function! \n",name);
-			return false;
-		}
-		/* serial, only single smd channel is allowed. */
-		else if (!name || (!strcmp(name,"serial") && strcmp(serial_transports,"smd") > 0) ) {
-			printk(KERN_ERR"zh: serial_transports = %s ,include invalid function\n",serial_transports);
-			return false;
-		}
-		/* rmnet, off when diag is locked. */
-		else if (!name || ((strstr(name,"rmnet")/*add more here*/) && is_diag_locked())) {
-			printk(KERN_ERR"zh: %s is not valid function! \n",name);
-			return false;
-		}
-		/* Below functions are not allowed too, in case of potential threat. */
-		if (!name || strstr(name,"mbim") || strstr(name,"ecm") || strstr(name,"qdss") || strstr(name,"ccid")
-			|| strstr(name,"acm") || strstr(name,"ncm")) {
-			printk(KERN_ERR"zh: %s is not valid function! \n",name);
-			return false;
-		}
-        }
-	return true;
-}
-#endif
-
 static ssize_t
 functions_store(struct device *pdev, struct device_attribute *attr,
 			       const char *buff, size_t size)
@@ -3894,14 +3859,6 @@ functions_store(struct device *pdev, struct device_attribute *attr,
 	struct android_configuration *conf;
 	char *conf_str;
 	struct android_usb_function_holder *f_holder;
-
-/* TF project, encrypt the DiagPort. */
-#ifdef ZTE_FEATURE_TF_SECURITY_SYSTEM
-	char conf_str2[64] = {0};
-         char conf_str3[64] = {0};
-	char valid_fun_adb[64] = "mass_storage,adb";
-	char valid_fun[64] = "mass_storage";
-#endif
 
 	char *name;
 	char buf[256], *b;
@@ -3948,28 +3905,6 @@ functions_store(struct device *pdev, struct device_attribute *attr,
 			conf = alloc_android_config(dev);
 
 		curr_conf = curr_conf->next;
-
-/* TF project, encrypt the DiagPort. */
-#ifdef ZTE_FEATURE_TF_SECURITY_SYSTEM
-		strcpy(conf_str2,conf_str);
-                  strcpy(conf_str3,conf_str);
-		if (!is_valid_function(conf_str2)) {
-			if (strstr(conf_str3,"adb")){
-			    strcpy(conf_str,valid_fun_adb);
-			    device_desc.idVendor = 0x19d2;
-                               device_desc.idProduct = 0x1351;
-		          }
-			else{
-			    strcpy(conf_str,valid_fun);
-			    device_desc.idVendor = 0x19d2;
-                               device_desc.idProduct = 0x1353;
-			}
-
-                            if(unlikely(not_display_oem_prefix()))
-                                pid_not_display_oem_prefix(&device_desc.idProduct);
-		}
-#endif
-
 		while (conf_str) {
 			name = strsep(&conf_str, ",");
 			is_ffs = 0;

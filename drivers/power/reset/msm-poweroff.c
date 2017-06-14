@@ -677,15 +677,6 @@ skip_sysfs_create:
 	if (scm_is_call_available(SCM_SVC_PWR, SCM_IO_DEASSERT_PS_HOLD) > 0)
 		scm_deassert_ps_hold_supported = true;
 
-#if defined(ZTE_RESTART_FLAG_USER_BUILD) /*may defined in the local makefile*/
-	download_mode = 0; /* reinit differing with default */
-#elif defined(ZTE_RESTART_FLAG_USERDEBUG_BUILD) || defined(ZTE_RESTART_FLAG_ENG_BUILD)
-	/* nothing need to do, the default is already 1 */
-#else
-	/* zte_should_defined_the_build_var_micro error_and_unexpected,
-		maybe to raise a compiling error next step,
-		here just use the default value as userdebug or eng build */
-#endif
 	set_dload_mode(download_mode);
 	if (!download_mode)
 		scm_disable_sdi();
