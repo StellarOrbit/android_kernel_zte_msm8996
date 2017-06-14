@@ -83,9 +83,6 @@ struct taskstats {
 	__u64	swapin_count;
 	__u64	swapin_delay_total;
 
-	/* Last time Delay wait statistic */
-	__u64	last_swapin_delay_total;
-
 	/* cpu "wall-clock" running time
 	 * On some architectures, value will adjust for cpu time stolen
 	 * from the kernel in involuntary waits due to virtualization.
@@ -166,9 +163,6 @@ struct taskstats {
 	/* Delay waiting for memory reclaim */
 	__u64	freepages_count;
 	__u64	freepages_delay_total;
-
-	/* last check freepages delay waiting */
-	__u64	last_freepages_delay_total;
 };
 
 

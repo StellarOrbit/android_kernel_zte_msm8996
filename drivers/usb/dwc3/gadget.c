@@ -70,41 +70,6 @@ static void dwc3_uevent(struct switch_dev *sdev, int state)
 	}
 }
 
-int scsicmd_start_adbd(void)
-{
-	struct dwc3 *dwc = _dwc3;
-
-	if (NULL == dwc) {
-		return -EINVAL;
-	}
-
-	dwc->start_adbd = 1;
-	switch_set_state(&dwc->sdev, 0x01);
-
-	pr_info("usb_xbl: %s, %d  %d\n", __func__, __LINE__, dwc->start_adbd);
-
-	return 0;
-}
-EXPORT_SYMBOL(scsicmd_start_adbd);
-
-int scsicmd_stop_adbd(void)
-{
-	struct dwc3 *dwc = _dwc3;
-
-	if (NULL == dwc) {
-		return -EINVAL;
-	}
-
-	dwc->start_adbd = 0;
-	switch_set_state(&dwc->sdev, 0x00);
-
-	pr_info("usb_xbl: %s, %d  %d\n", __func__, __LINE__, dwc->start_adbd);
-
-	return 0;
-}
-EXPORT_SYMBOL(scsicmd_stop_adbd);
-/*end*/
-
 /**
  * dwc3_gadget_set_test_mode - Enables USB2 Test Modes
  * @dwc: pointer to our context structure

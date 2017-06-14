@@ -43,329 +43,6 @@ int zte_display_init=0;
 
 
 DEFINE_LED_TRIGGER(bl_led_trigger);
-#ifdef ZTE_SAMSUNG_ACL_HBM
-
-static int old_bl_level = 0;
-static void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
-				     struct dsi_panel_cmds *pcmds, u32 flags);
-static char led_acl_mode[2] = {0x55, 0x0};	/* DTYPE_DCS_WRITE1 */
-
-static struct dsi_cmd_desc acl_cmd[] = {
-	{	{DTYPE_DCS_WRITE1, 0, 0, 0, 1, sizeof(led_acl_mode)},
-		led_acl_mode
-	},
-	{	{DTYPE_DCS_WRITE1, 0, 0, 0, 1, sizeof(led_acl_mode)},
-		led_acl_mode
-	},
-	{	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(led_acl_mode)},
-		led_acl_mode
-	},
-};
-static char led_hbm_mode[2] = {0x53, 0x20};	/* DTYPE_DCS_WRITE1 */
-
-static struct dsi_cmd_desc hbm_cmd[] = {
-	{	{DTYPE_DCS_WRITE1, 0, 0, 0, 1, sizeof(led_hbm_mode)},
-		led_hbm_mode
-	},
-	{	{DTYPE_DCS_WRITE1, 0, 0, 0, 1, sizeof(led_hbm_mode)},
-		led_hbm_mode
-	},
-	{	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(led_hbm_mode)},
-		led_hbm_mode
-	},
-};
-
-
-static void mdss_dsi_panel_bklt_acl(struct mdss_dsi_ctrl_pdata *ctrl, int level)
-{
-	struct dcs_cmd_req cmdreq;
-	struct mdss_panel_info *pinfo;
-
-	if (ctrl == NULL)
-		return;
-	pinfo = &(ctrl->panel_data.panel_info);
-	if (pinfo->dcs_cmd_by_left) {
-		if (ctrl->ndx != DSI_CTRL_LEFT)
-			return;
-	}
-	pr_info("%s: %d\n", __func__, level);
-	led_acl_mode[1] = level;
-
-	memset(&cmdreq, 0, sizeof(cmdreq));
-	cmdreq.cmds = acl_cmd;
-	cmdreq.cmds_cnt = 3;
-	cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL | CMD_REQ_HS_MODE;
-	cmdreq.rlen = 0;
-	cmdreq.cb = NULL;
-
-	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
-
-}
-static void mdss_dsi_panel_bklt_hbm(struct mdss_dsi_ctrl_pdata *ctrl, int level)
-{
-	struct dcs_cmd_req cmdreq;
-	struct mdss_panel_info *pinfo;
-
-	if (ctrl == NULL)
-		return;
-
-	pinfo = &(ctrl->panel_data.panel_info);
-	if (pinfo->dcs_cmd_by_left) {
-		if (ctrl->ndx != DSI_CTRL_LEFT)
-			return;
-	}
-	pr_info("%s: %d\n", __func__, level);
-	if (level > 0)
-		led_hbm_mode[1] = 0xe0;
-	else
-		led_hbm_mode[1] = 0x28;
-
-	memset(&cmdreq, 0, sizeof(cmdreq));
-	cmdreq.cmds = hbm_cmd;
-	cmdreq.cmds_cnt = 3;
-	cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL | CMD_REQ_HS_MODE;
-	cmdreq.rlen = 0;
-	cmdreq.cb = NULL;
-
-	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
-}
-
-int mdss_dsi_panel_acl(struct mdss_panel_data *pdata, int level)
-{
-	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
-	struct mdss_dsi_ctrl_pdata *sctrl = NULL;
-
-	pr_info("%s: level == %d return\n", __func__, level);
-	if (pdata == NULL) {
-		pr_err("%s: Invalid input data\n", __func__);
-		return -EINVAL;
-	}
-
-	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-			    panel_data);
-
-	pr_info("%s: ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
-	if (!mdss_dsi_sync_wait_enable(ctrl)) {
-		mdss_dsi_panel_bklt_acl(ctrl, level);
-		pr_info("%s: mdss_dsi_sync_wait_enable-\n", __func__);
-		return 0;
-	}
-	/*
-	 * DCS commands to update backlight are usually sent at
-	 * the same time to both the controllers. However, if
-	 * sync_wait is enabled, we need to ensure that the
-	 * dcs commands are first sent to the non-trigger
-	 * controller so that when the commands are triggered,
-	 * both controllers receive it at the same time.
-	 */
-	sctrl = mdss_dsi_get_other_ctrl(ctrl);
-	if (mdss_dsi_sync_wait_trigger(ctrl)) {
-		if (sctrl) {
-			mdss_dsi_panel_bklt_acl(sctrl, level);
-		}
-		mdss_dsi_panel_bklt_acl(ctrl, level);
-	} else {
-		mdss_dsi_panel_bklt_acl(ctrl, level);
-		if (sctrl) {
-			mdss_dsi_panel_bklt_acl(sctrl, level);
-		}
-	}
-
-	pr_info("%s:-\n", __func__);
-	return 0;
-}
-
-int mdss_dsi_panel_hbm(struct mdss_panel_data *pdata, int level)
-{
-	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
-	struct mdss_dsi_ctrl_pdata *sctrl = NULL;
-
-	pr_info("%s: level == %d\n", __func__, level);
-	if (pdata == NULL) {
-		pr_err("%s: Invalid input data\n", __func__);
-		return -EINVAL;
-	}
-
-	if (old_bl_level != 255) {
-		pr_err("%s: old_level = %d return\n", __func__, old_bl_level);
-		return 0;
-	}
-
-	if (level == 1)
-		mdss_dsi_panel_acl(pdata, 0);
-	else if (old_bl_level != 255)
-		mdss_dsi_panel_acl(pdata, 2);
-
-	if (pdata == NULL) {
-		pr_err("%s: Invalid input data\n", __func__);
-		return -EINVAL;
-	}
-
-	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-			    panel_data);
-
-	pr_info("%s: ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
-
-	if (!mdss_dsi_sync_wait_enable(ctrl)) {
-		mdss_dsi_panel_bklt_hbm(ctrl, level);
-		pr_info("%s: mdss_dsi_sync_wait_enable-\n", __func__);
-		return 0;
-	}
-	/*
-	 * DCS commands to update backlight are usually sent at
-	 * the same time to both the controllers. However, if
-	 * sync_wait is enabled, we need to ensure that the
-	 * dcs commands are first sent to the non-trigger
-	 * controller so that when the commands are triggered,
-	 * both controllers receive it at the same time.
-	 */
-	sctrl = mdss_dsi_get_other_ctrl(ctrl);
-	if (mdss_dsi_sync_wait_trigger(ctrl)) {
-		if (sctrl) {
-			mdss_dsi_panel_bklt_hbm(sctrl, level);
-		}
-		mdss_dsi_panel_bklt_hbm(ctrl, level);
-	} else {
-		mdss_dsi_panel_bklt_hbm(ctrl, level);
-		if (sctrl) {
-			mdss_dsi_panel_bklt_hbm(sctrl, level);
-		}
-	}
-
-	pr_info("%s:-\n", __func__);
-	return 0;
-}
-
-struct mdss_dsi_ctrl_pdata *g_ctrl_pdata;
-
-static int panel_acl_proc_show(struct seq_file *m, void *v)
-{
-	seq_printf(m, "%d\n", g_ctrl_pdata->current_acl_level);
-
-	return 0;
-}
-
-static int panel_acl_proc_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, panel_acl_proc_show, NULL);
-}
-
-static ssize_t panel_acl_proc_write(struct file *file, const char __user *buffer,
-				    size_t count, loff_t *pos)
-{
-	int ret;
-	int rc;
-
-	rc = kstrtoint_from_user(buffer, count, 0, &ret);
-	if (rc)
-		return rc;
-
-	g_ctrl_pdata->current_acl_level = ret;
-
-
-	pr_info("%s : current_acl_level = %d\n", __func__, g_ctrl_pdata->current_acl_level);
-
-	mdss_dsi_panel_acl(&(g_ctrl_pdata->panel_data), g_ctrl_pdata->current_acl_level);
-
-	return 1;
-}
-
-static const struct file_operations panel_acl_proc_fops = {
-	.open		= panel_acl_proc_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	       = single_release,
-	.write		= panel_acl_proc_write,
-};
-
-static int panel_acl_proc_init(void)
-{
-	struct proc_dir_entry *res;
-
-	res = proc_create("panel_acl_switch", S_IWUGO | S_IRUGO, NULL, &panel_acl_proc_fops);
-	if (!res) {
-		pr_err("failed to create /proc/panel_acl_switch\n");
-		return -ENOMEM;
-	}
-
-	pr_info("created /proc/panel_acl_switch\n");
-	return 0;
-}
-
-static int panel_hbm_proc_show(struct seq_file *m, void *v)
-{
-
-	seq_printf(m, "%d\n", g_ctrl_pdata->current_hbm_level);
-
-	return 0;
-}
-
-static int panel_hbm_proc_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, panel_hbm_proc_show, NULL);
-}
-
-static ssize_t panel_hbm_proc_write(struct file *file, const char __user *buffer,
-				    size_t count, loff_t *pos)
-{
-	int ret;
-	int rc;
-
-	rc = kstrtoint_from_user(buffer, count, 0, &ret);
-	if (rc)
-		return rc;
-
-
-	g_ctrl_pdata->current_hbm_level = ret;
-
-	pr_err("%s : current_hbm_level = %d\n", __func__, g_ctrl_pdata->current_hbm_level);
-
-	mdss_dsi_panel_hbm(&(g_ctrl_pdata->panel_data), g_ctrl_pdata->current_hbm_level);
-
-	return 1;
-}
-
-static const struct file_operations panel_hbm_proc_fops = {
-	.open		= panel_hbm_proc_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= single_release,
-	.write		= panel_hbm_proc_write,
-};
-
-static int panel_hbm_proc_init(void)
-{
-	struct proc_dir_entry *res;
-
-	res = proc_create("panel_hbm_switch", S_IWUGO | S_IRUGO, NULL,  &panel_hbm_proc_fops);
-	if (!res) {
-		pr_err("failed to create /proc/panel_hbm_switch\n");
-		return -ENOMEM;
-	}
-
-	pr_info("created /proc/panel_hbm_switch\n");
-
-	return 0;
-}
-
-static int  samsung_panel_proc_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
-{
-	int ret = -1;
-	static int initial_flag = 0;
-
-	if (ctrl_pdata == NULL)
-		goto end;
-	if (initial_flag == 1)
-		goto end;
-	else
-		initial_flag = 1;
-	g_ctrl_pdata = ctrl_pdata;
-	ret = panel_acl_proc_init();
-	ret = panel_hbm_proc_init();
-end:
-	return ret;
-}
-#endif
 
 ssize_t mdss_dsi_panel_lcd_read_proc(struct file *file, char __user *page, size_t size, loff_t *ppos)
 {
@@ -615,10 +292,6 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 	struct mdss_panel_info *pinfo;
 	int bl_level;
 
-#ifdef CONFIG_BOARD_FUJISAN
-	struct mdss_dsi_ctrl_pdata *sctrl = NULL;
-#endif
-
 	pinfo = &(ctrl->panel_data.panel_info);
 
 	mutex_lock(&zte_display_lock);
@@ -631,10 +304,6 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 		}
 	}
 
-#ifdef ZTE_BRIGHTNESS_CALIBRATION_NOT
-	bl_level = level;
-	pr_err("LCD %s: flag=%d level=%d -> new_level=%d\n", __func__, power_on_flag, level, bl_level);
-#else
 	if (level <11)
 		bl_level = level;
 	else if (level == 11)
@@ -643,20 +312,9 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 		bl_level = (15*level*level + 6059*level+29580)/10000;
 
 	pr_err("LCD %s: flag=%d level=%d -> new_level=%d\n", __func__, power_on_flag, level, bl_level);
-#endif
 
 	led_pwm1[1] = (unsigned char)bl_level;
 
-#ifdef CONFIG_BOARD_FUJISAN
-	if (power_on_flag == 1) {
-		led_pwm2[1] = 0x24;
-		power_on_flag = 2;
-	} else if (power_on_flag == 2) {
-		led_pwm2[1] = 0x24;
-		power_on_flag = 0;
-	} else
-		led_pwm2[1] = 0x2c;
-#else
 	if (power_on_flag == 1) {
 		led_pwm2[1] = 0x20;
 		power_on_flag = 2;
@@ -665,7 +323,7 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 		power_on_flag = 0;
 	} else
 		led_pwm2[1] = 0x28;
-#endif
+
 	memset(&cmdreq, 0, sizeof(cmdreq));
 	cmdreq.cmds = backlight_cmd;
 	cmdreq.cmds_cnt = 4;
@@ -674,21 +332,6 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 	cmdreq.cb = NULL;
 
 	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
-
-#ifdef CONFIG_BOARD_FUJISAN
-	sctrl = mdss_dsi_get_other_ctrl(ctrl);
-	if (sctrl && (ctrl->ndx == DSI_CTRL_LEFT)) {
-		if (sctrl->panel_data.panel_info.panel_power_state != MDSS_PANEL_POWER_OFF) {
-			pr_info("LCD %s: for other ctrl ndx=%d level=%d -> new_level=%d\n",
-					__func__, sctrl->ndx, level, bl_level);
-			mdss_dsi_cmdlist_put(sctrl, &cmdreq);
-		} else {
-			pr_info("LCD %s: sctrl is power off, not need send cmds!\n", __func__);
-		}
-	} else {
-		pr_err("LCD %s: sctrl is NULL", __func__);
-	}
-#endif
 
 	mutex_unlock(&zte_display_lock);
 }
@@ -842,37 +485,6 @@ static char offset_90[] = {0, 0, 0,	0, 0,
 	-8, -4, -55, -34, -28};
 #endif
 
-#if 0
-//60nit
-static char read_R_AID_offset_60[] = {0xC9};
-static struct dsi_cmd_desc read_R_AID_offset_60_cmd[] = {
-	{{DTYPE_DCS_READ, 1, 0, 1, 5, sizeof(read_R_AID_offset_60)},read_R_AID_offset_60},
-	{{DTYPE_DCS_READ, 1, 0, 1, 5, sizeof(read_R_AID_offset_60)},read_R_AID_offset_60},
-};
-
-static char write_R_AID_offset_60[] = {0xC9,
-	0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00,};
-static struct dsi_cmd_desc write_R_AID_offset_60_cmd[] = {
-	{{DTYPE_DCS_LWRITE, 1, 0, 1, 5, sizeof(write_R_AID_offset_60)},write_R_AID_offset_60},
-	{{DTYPE_DCS_LWRITE, 1, 0, 1, 5, sizeof(write_R_AID_offset_60)},write_R_AID_offset_60},
-};
-static char offset_60_default[] = {
-	0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00,};
-static char offset_60[] = {0, 2, 3,	 0, -1,
-	-2,  1,  0,   0, -1,
-	-1,  -3, -1,  -2,	-3,
-	-1, -3, -5, -3, -8,
-	-8, -4, -36, -23, -17};
-#endif
-
 /////////////////////disable command start///////////////////////////////////
 static struct dsi_cmd_desc R_AID_disable_cmd[] ={
 	{{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(enable_R_AID)}, enable_R_AID},
@@ -893,15 +505,7 @@ static struct dsi_cmd_desc R_AID_disable_90_cmd[] ={
 	{{DTYPE_DCS_READ, 1, 0, 1, 1, sizeof(read_R_AID_offset_addr_90)},read_R_AID_offset_addr_90},
 	{{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(write_R_AID_offset_90)}, write_R_AID_offset_90},
 };
-#if 0
-static struct dsi_cmd_desc R_AID_disable_60_cmd[] ={
-	{{DTYPE_DCS_LWRITE, 1, 0, 1, 5, sizeof(write_R_AID_offset_60)},write_R_AID_offset_60},
-	{{DTYPE_DCS_LWRITE, 1, 0, 1, 5, sizeof(write_R_AID_offset_60)},write_R_AID_offset_60},
-};
-#endif
 static struct dsi_cmd_desc R_AID_disable_complete_cmd[] ={
-	//{{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(R_AID_disable_6)}, R_AID_disable_6},
-	//{{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(R_AID_disable_6)}, R_AID_disable_6},
 	{{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(R_AID_config_7)}, R_AID_config_7},
 	{{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(R_AID_config_7)}, R_AID_config_7},
 	{{DTYPE_GEN_LWRITE, 1, 0, 0, 0, sizeof(complete_R_AID)}, complete_R_AID},
@@ -1124,18 +728,6 @@ static void mdss_dsi_enable_R_AID(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 		cmdreq_disable_90.cmds = R_AID_disable_90_cmd;
 		ret = mdss_dsi_cmdlist_put(ctrl, &cmdreq_disable_90);
 		printk("jiangfeng %s, line %d, ret %d\n", __func__, __LINE__, ret);
-#if 0
-		memcpy(write_R_AID_offset_60 + 1, offset_60_default, 25);
-
-		memset(&cmdreq_disable_60, 0, sizeof(cmdreq_disable_60));
-		cmdreq_disable_60.cmds_cnt = 2;
-		cmdreq_disable_60.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
-		cmdreq_disable_60.rlen = 0;
-		cmdreq_disable_60.cb = NULL;
-
-		cmdreq_disable_60.cmds = R_AID_disable_60_cmd;
-		ret = mdss_dsi_cmdlist_put(ctrl, &cmdreq_disable_60);
-#endif
 
 		memset(&cmdreq_disable_complete, 0, sizeof(cmdreq_disable_complete));
 		cmdreq_disable_complete.cmds_cnt = 3;
@@ -1146,11 +738,6 @@ static void mdss_dsi_enable_R_AID(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 		cmdreq_disable_complete.cmds = R_AID_disable_complete_cmd;
 		ret = mdss_dsi_cmdlist_put(ctrl, &cmdreq_disable_complete);
 		printk("jiangfeng %s, line %d, ret %d\n", __func__, __LINE__, ret);
-#if 0
-		inited_120 = 0;
-		inited_90 = 0;
-		inited_60 = 0;
-#endif
 	} else {
 		printk("jiangfeng %s, line %d, ret %d\n", __func__, __LINE__, ret);
 	}
@@ -1280,28 +867,12 @@ static int mdss_dsi_request_gpios(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 			goto disp_en_gpio_err;
 		}
 	}
-#ifdef CONFIG_BOARD_FUJISAN
-	if (ctrl_pdata->ndx == DSI_CTRL_LEFT) {
-		rc = gpio_request(ctrl_pdata->rst_gpio, "disp_rst_n");
-		if (rc) {
-			pr_err("%s: request reset gpio failed, rc=%d\n",
-				__func__, rc);
-			goto rst_gpio_err;
-		}
-	} else {
-		rc = gpio_request(ctrl_pdata->rst2_gpio, "disp_rst2_n");
-		if (rc) {
-			pr_err("%s: request reset2 gpio failed, rc=%d\n", __func__, rc);
-		}
-	}
-#else
 	rc = gpio_request(ctrl_pdata->rst_gpio, "disp_rst_n");
 	if (rc) {
 		pr_err("request reset gpio failed, rc=%d\n",
 			rc);
 		goto rst_gpio_err;
 	}
-#endif
 	if (gpio_is_valid(ctrl_pdata->bklt_en_gpio)) {
 		rc = gpio_request(ctrl_pdata->bklt_en_gpio,
 						"bklt_enable");
@@ -1326,9 +897,6 @@ mode_gpio_err:
 		gpio_free(ctrl_pdata->bklt_en_gpio);
 bklt_en_gpio_err:
 	gpio_free(ctrl_pdata->rst_gpio);
-#ifdef CONFIG_BOARD_FUJISAN
-	gpio_free(ctrl_pdata->rst2_gpio);
-#endif
 rst_gpio_err:
 	if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
 		gpio_free(ctrl_pdata->disp_en_gpio);
@@ -1389,45 +957,6 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 				}
 			}
 
-#ifdef CONFIG_BOARD_FUJISAN
-			if (ctrl_pdata->ndx == DSI_CTRL_LEFT) {
-				pr_info("%s: ndx=%d reset=%d seq!\n", __func__,
-						ctrl_pdata->ndx, ctrl_pdata->rst_gpio);
-				if (pdata->panel_info.rst_seq_len) {
-					rc = gpio_direction_output(ctrl_pdata->rst_gpio,
-					pdata->panel_info.rst_seq[0]);
-					if (rc) {
-						pr_err("%s: unable to set dir for rst gpio\n", __func__);
-						goto exit;
-					}
-				}
-
-				for (i = 0; i < pdata->panel_info.rst_seq_len; ++i) {
-					gpio_set_value((ctrl_pdata->rst_gpio),
-						pdata->panel_info.rst_seq[i]);
-					if (pdata->panel_info.rst_seq[++i])
-						usleep_range(pinfo->rst_seq[i] * 1000, pinfo->rst_seq[i] * 1000);
-				}
-			} else {
-				pr_info("%s: ndx=%d reset2=%d seq!\n", __func__,
-					ctrl_pdata->ndx, ctrl_pdata->rst2_gpio);
-				if (pdata->panel_info.rst_seq_len) {
-					rc = gpio_direction_output(ctrl_pdata->rst2_gpio,
-						pdata->panel_info.rst_seq[0]);
-					if (rc) {
-						pr_err("%s: unable to set dir for rst gpio\n", __func__);
-							goto exit;
-					}
-				}
-
-				for (i = 0; i < pdata->panel_info.rst_seq_len; ++i) {
-					gpio_set_value((ctrl_pdata->rst2_gpio),
-						pdata->panel_info.rst_seq[i]);
-					if (pdata->panel_info.rst_seq[++i])
-						usleep_range(pinfo->rst_seq[i] * 1000, pinfo->rst_seq[i] * 1000);
-				}
-			}
-#else
 			if (pdata->panel_info.rst_seq_len) {
 				rc = gpio_direction_output(ctrl_pdata->rst_gpio,
 					pdata->panel_info.rst_seq[0]);
@@ -1444,7 +973,6 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 				if (pdata->panel_info.rst_seq[++i])
 					usleep_range(pinfo->rst_seq[i] * 1000, pinfo->rst_seq[i] * 1000);
 			}
-#endif
 
 			if (gpio_is_valid(ctrl_pdata->bklt_en_gpio)) {
 				rc = gpio_direction_output(
@@ -1487,20 +1015,8 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
 			gpio_free(ctrl_pdata->disp_en_gpio);
 		}
-#ifdef CONFIG_BOARD_FUJISAN
-		if (ctrl_pdata->ndx == DSI_CTRL_LEFT) {
-			pr_info("%s: ndx=%d reset free!\n", __func__, ctrl_pdata->ndx);
-			gpio_set_value((ctrl_pdata->rst_gpio), 0);
-			gpio_free(ctrl_pdata->rst_gpio);
-		} else {
-			pr_info("%s: ndx=%d reset2 free!\n", __func__, ctrl_pdata->ndx);
-			gpio_set_value((ctrl_pdata->rst2_gpio), 0);
-			gpio_free(ctrl_pdata->rst2_gpio);
-		}
-#else
 		gpio_set_value((ctrl_pdata->rst_gpio), 0);
 		gpio_free(ctrl_pdata->rst_gpio);
-#endif
 		if (gpio_is_valid(ctrl_pdata->mode_gpio))
 			gpio_free(ctrl_pdata->mode_gpio);
 	}
@@ -1710,9 +1226,6 @@ end:
 void mdss_dsi_panel_3v_power(struct mdss_panel_data *pdata, int enable)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
-#ifdef CONFIG_BOARD_FUJISAN
-	int retval = 0;
-#endif
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -1725,75 +1238,6 @@ void mdss_dsi_panel_3v_power(struct mdss_panel_data *pdata, int enable)
 	printk("LCD 3v_power GPIO(vsp):%d , Enable:%d\n",ctrl_pdata->lcd_3v_vsp_en_gpio, enable);
 
 	if (enable) {
-#ifdef CONFIG_BOARD_FUJISAN
-		if (ctrl_pdata->ndx == DSI_CTRL_LEFT) {
-			if (ctrl_pdata->lcd_2p8_reg) {
-				retval = regulator_enable(ctrl_pdata->lcd_2p8_reg);
-				if (retval < 0) {
-					pr_err("%s: lcd_2p8_reg regulator_enable failed\n", __func__);
-				} else {
-					pr_info("%s: lcd_2p8_reg regulator_enable successfully\n", __func__);
-				}
-			} else {
-				pr_err("%s: ctrl_pdata->lcd_2p8_reg not exist!\n", __func__);
-			}
-			msleep(5);
-		}
-
-		if (ctrl_pdata->ndx == DSI_CTRL_RIGHT) {
-			if (ctrl_pdata->lcd2_2p8_reg) {
-				retval = regulator_enable(ctrl_pdata->lcd2_2p8_reg);
-				if (retval < 0) {
-					pr_err("%s: lcd2_2p8_reg regulator_enable failed\n", __func__);
-				} else {
-					pr_info("%s: lcd2_2p8_reg regulator_enable successfully\n", __func__);
-				}
-			} else {
-				pr_err("%s: ctrl_pdata->lcd2_2p8_reg not exist!\n", __func__);
-			}
-			msleep(5);
-
-			if (gpio_is_valid(ctrl_pdata->lcd_5v_vsp_en_gpio)) {
-				pr_info("%s: enable lcd_5v_vsp_en_gpio\n", __func__);
-				gpio_direction_output((ctrl_pdata->lcd_5v_vsp_en_gpio), 1);
-			} else {
-				pr_err("%s:%d, lcd_5v_vsp_en_gpio not configured\n",
-					__func__, __LINE__);
-			}
-			msleep(2);
-
-			if (gpio_is_valid(ctrl_pdata->lcd_5v_vsn_en_gpio)) {
-				pr_info("%s: enable lcd_5v_vsn_en_gpio\n", __func__);
-				gpio_direction_output((ctrl_pdata->lcd_5v_vsn_en_gpio), 1);
-			} else {
-				pr_err("%s:%d, lcd_5v_vsn_en_gpio not configured\n",
-					__func__, __LINE__);
-			}
-			msleep(2);
-
-			if (ctrl_pdata->lcd2_5v_vsp_reg) {
-				retval = regulator_enable(ctrl_pdata->lcd2_5v_vsp_reg);
-				if (retval < 0) {
-					pr_err("%s: lcd2_5v_vsp_reg regulator_enable failed\n", __func__);
-				} else {
-					pr_info("%s: lcd2_5v_vsp_reg regulator_enable successfully\n", __func__);
-				}
-			} else {
-				pr_err("%s: ctrl_pdata->lcd2_5v_vsp_reg not exist!\n", __func__);
-			}
-
-			if (ctrl_pdata->lcd2_5v_vsn_reg) {
-				retval = regulator_enable(ctrl_pdata->lcd2_5v_vsn_reg);
-				if (retval < 0) {
-					pr_err("%s: lcd2_5v_vsn_reg regulator_enable failed\n", __func__);
-				} else {
-					pr_info("%s: lcd2_5v_vsn_reg regulator_enable successfully\n", __func__);
-				}
-			} else {
-				pr_err("%s: ctrl_pdata->lcd2_5v_vsn_reg not exist!\n", __func__);
-			}
-		}
-#endif
 		if (gpio_is_valid(ctrl_pdata->lcd_3v_vsp_en_gpio)){
 			//gpio_set_value((ctrl_pdata->lcd_5v_vsp_en_gpio), 1);
 			gpio_direction_output((ctrl_pdata->lcd_3v_vsp_en_gpio), 1);
@@ -1801,59 +1245,13 @@ void mdss_dsi_panel_3v_power(struct mdss_panel_data *pdata, int enable)
 			pr_debug("%s:%d, lcd_3v_vsp_en_gpio not configured\n",
 			  	 __func__, __LINE__);
 		}
-#ifndef ZTE_SAMSUNG_ACL_HBM
 		msleep(5);
-#endif
-
 	} else {
-#ifdef CONFIG_BOARD_FUJISAN
-		if (ctrl_pdata->ndx == DSI_CTRL_RIGHT) {
-			if (ctrl_pdata->lcd2_5v_vsp_reg) {
-				pr_info("%s: regulator_disable lcd2_5v_vsp_reg\n", __func__);
-				regulator_disable(ctrl_pdata->lcd2_5v_vsp_reg);
-			}
-
-			if (ctrl_pdata->lcd2_5v_vsn_reg) {
-				pr_info("%s: regulator_disable lcd2_5v_vsn_reg\n", __func__);
-				regulator_disable(ctrl_pdata->lcd2_5v_vsn_reg);
-			}
-			msleep(5);
-
-			if (gpio_is_valid(ctrl_pdata->lcd_5v_vsp_en_gpio)) {
-				pr_info("%s: disable lcd_5v_vsp_en_gpio\n", __func__);
-				gpio_direction_output((ctrl_pdata->lcd_5v_vsp_en_gpio), 0);
-			}
-			msleep(2);
-
-			if (gpio_is_valid(ctrl_pdata->lcd_5v_vsn_en_gpio)) {
-				pr_info("%s: disable lcd_5v_vsn_en_gpio\n", __func__);
-				gpio_direction_output((ctrl_pdata->lcd_5v_vsn_en_gpio), 0);
-			}
-			msleep(2);
-		}
-#endif
 			if (gpio_is_valid(ctrl_pdata->lcd_3v_vsp_en_gpio)) {
 				//gpio_set_value((ctrl_pdata->lcd_5v_vsp_en_gpio), 0);
 				gpio_direction_output((ctrl_pdata->lcd_3v_vsp_en_gpio), 0);
 			}
-#ifndef ZTE_SAMSUNG_ACL_HBM
 			msleep(2);
-#endif
-#ifdef CONFIG_BOARD_FUJISAN
-		if (ctrl_pdata->ndx == DSI_CTRL_RIGHT) {
-			if (ctrl_pdata->lcd2_2p8_reg) {
-				pr_info("%s: regulator_disable lcd2_2p8_reg\n", __func__);
-				/*regulator_disable(ctrl_pdata->lcd2_2p8_reg);*/
-			}
-		}
-
-		if (ctrl_pdata->ndx == DSI_CTRL_LEFT) {
-			if (ctrl_pdata->lcd_2p8_reg) {
-				pr_info("%s: regulator_disable lcd_2p8_reg\n", __func__);
-				regulator_disable(ctrl_pdata->lcd_2p8_reg);
-			}
-		}
-#endif
 	}
 }
 
@@ -1944,56 +1342,6 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 		mdss_dsi_panel_bklt_pwm(ctrl_pdata, bl_level);
 		break;
 	case BL_DCS_CMD:
-#ifdef ZTE_SAMSUNG_ACL_HBM
-		if (!mdss_dsi_sync_wait_enable(ctrl_pdata)) {
-			mdss_dsi_panel_bklt_dcs(ctrl_pdata, bl_level);
-			if (bl_level == 255)
-				mdss_dsi_panel_bklt_acl(ctrl_pdata, 0);
-			else if (old_bl_level == 255 || old_bl_level == 0)
-				mdss_dsi_panel_bklt_acl(ctrl_pdata, 2);
-			break;
-		}
-		/*
-		 * DCS commands to update backlight are usually sent at
-		 * the same time to both the controllers. However, if
-		 * sync_wait is enabled, we need to ensure that the
-		 * dcs commands are first sent to the non-trigger
-		 * controller so that when the commands are triggered,
-		 * both controllers receive it at the same time.
-		 */
-		sctrl = mdss_dsi_get_other_ctrl(ctrl_pdata);
-		if (mdss_dsi_sync_wait_trigger(ctrl_pdata)) {
-			if (sctrl) {
-				mdss_dsi_panel_bklt_dcs(sctrl, bl_level);
-				if (bl_level == 255)
-					mdss_dsi_panel_bklt_acl(sctrl, 0);
-				else if (old_bl_level == 255 || old_bl_level == 0)
-					mdss_dsi_panel_bklt_acl(sctrl, 2);
-			}
-			mdss_dsi_panel_bklt_dcs(ctrl_pdata, bl_level);
-			if (bl_level == 255)
-				mdss_dsi_panel_bklt_acl(ctrl_pdata, 0);
-			else if (old_bl_level == 255 || old_bl_level == 0)
-				mdss_dsi_panel_bklt_acl(ctrl_pdata, 2);
-		} else {
-			mdss_dsi_panel_bklt_dcs(ctrl_pdata, bl_level);
-			if (bl_level == 255)
-				mdss_dsi_panel_bklt_acl(ctrl_pdata, 0);
-			else if (old_bl_level == 255 || old_bl_level == 0)
-				mdss_dsi_panel_bklt_acl(ctrl_pdata, 2);
-			if (sctrl) {
-				mdss_dsi_panel_bklt_dcs(sctrl, bl_level);
-				if (bl_level == 255)
-					mdss_dsi_panel_bklt_acl(sctrl, 0);
-				else if (old_bl_level == 255 || old_bl_level == 0)
-					mdss_dsi_panel_bklt_acl(sctrl, 2);
-			}
-		}
-
-		old_bl_level = bl_level;
-		pr_info("%s: level=%d old_bl_level %d acl %d\n", __func__, bl_level, old_bl_level, led_acl_mode[1]);
-
-#else
 		if (!mdss_dsi_sync_wait_enable(ctrl_pdata)) {
 			mdss_dsi_panel_bklt_dcs(ctrl_pdata, bl_level);
 			break;
@@ -2016,7 +1364,6 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 			if (sctrl)
 				mdss_dsi_panel_bklt_dcs(sctrl, bl_level);
 		}
-#endif
 		break;
 	default:
 		pr_err("%s: Unknown bl_ctrl configuration\n",
@@ -2767,11 +2114,7 @@ static void mdss_panel_parse_te_params(struct device_node *np,
 		!of_property_read_bool(np, "qcom,mdss-tear-check-disable");
 	rc = of_property_read_u32
 		(np, "qcom,mdss-tear-check-sync-cfg-height", &tmp);
-#ifndef ZTE_FASTMMI_MANUFACTURING_VERSION
 	te->sync_cfg_height = (!rc ? tmp : 0xfff0);
-#else
-	te->sync_cfg_height = timing->yres-1;/*no lcd could boot for pv version*/
-#endif
 	rc = of_property_read_u32
 		(np, "qcom,mdss-tear-check-sync-init-val", &tmp);
 	te->vsync_init_val = (!rc ? tmp : timing->yres);
@@ -2785,18 +2128,10 @@ static void mdss_panel_parse_te_params(struct device_node *np,
 	te->refx100 = (!rc ? tmp : 6000);
 	rc = of_property_read_u32
 		(np, "qcom,mdss-tear-check-start-pos", &tmp);
-#ifndef ZTE_FASTMMI_MANUFACTURING_VERSION
 	te->start_pos = (!rc ? tmp : timing->yres);
-#else
-	te->start_pos = timing->yres - timing->yres*55/1000;/*no lcd could boot for pv version*/
-#endif
 	rc = of_property_read_u32
 		(np, "qcom,mdss-tear-check-rd-ptr-trigger-intr", &tmp);
-#ifndef ZTE_FASTMMI_MANUFACTURING_VERSION
 	te->rd_ptr_irq = (!rc ? tmp : timing->yres + 1);
-#else
-	te->rd_ptr_irq = timing->yres - timing->yres*55/1000-1;/*no lcd could boot for pv version*/
-#endif
 	te->wr_ptr_irq = 0;
 }
 
@@ -3061,12 +2396,6 @@ static void mdss_dsi_parse_esd_params(struct device_node *np,
 
 	if (!pinfo->esd_check_enabled)
 		return;
-/*zte,esd interrupt mode 0205  start */
-#ifdef ZTE_FASTMMI_MANUFACTURING_VERSION
-	ctrl->lcd_esd_interrupt_gpio = -2;
-	pinfo->esd_check_enabled = 0;
-	return;
-#endif
 
 	if (mdss_dsi_is_left_ctrl(ctrl)) {
 		ctrl->lcd_esd_interrupt_gpio = of_get_named_gpio(np, "zte,esd-interrupt-gpio", 0);
@@ -3609,15 +2938,11 @@ static int  mdss_dsi_panel_config_res_properties(struct device_node *np,
 	int rc = 0;
 
 	mdss_dsi_parse_roi_alignment(np, pt);
-#ifdef ZTE_SAMSUNG_ACL_HBM
+
 	mdss_dsi_parse_dcs_cmds(np, &pt->on_cmds,
-				"qcom,mdss-dsi-on-command-acl",
-				"qcom,mdss-dsi-on-command-state");
-#else
-	mdss_dsi_parse_dcs_cmds(np, &pt->on_cmds,
-				"qcom,mdss-dsi-on-command",
-				"qcom,mdss-dsi-on-command-state");
-#endif
+		"qcom,mdss-dsi-on-command",
+		"qcom,mdss-dsi-on-command-state");
+
 	mdss_dsi_parse_dcs_cmds(np, &pt->post_panel_on_cmds,
 		"qcom,mdss-dsi-post-panel-on-command", NULL);
 
@@ -3999,9 +3324,6 @@ int mdss_dsi_panel_init(struct device_node *node,
       mutex_init(&zte_display_lock);
 	  zte_display_init=1;
 	}
-#ifdef ZTE_SAMSUNG_ACL_HBM
-	samsung_panel_proc_init(ctrl_pdata);
-#endif
 
 	mdss_dsi_panel_lcd_proc(node);
 	return 0;
