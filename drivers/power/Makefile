@@ -1,7 +1,6 @@
 ccflags-$(CONFIG_POWER_SUPPLY_DEBUG) := -DDEBUG
-ifeq CONFIG_BOARD_AILSA_II
-ccflags-y += -DZTE_AILSA_II_VR
-endif
+ccflags-$(CONFIG_BOARD_AILSA_II) := -DZTE_AILSA_II_VR
+
 power_supply-y				:= power_supply_core.o
 power_supply-$(CONFIG_SYSFS)		+= power_supply_sysfs.o
 power_supply-$(CONFIG_LEDS_TRIGGERS)	+= power_supply_leds.o
