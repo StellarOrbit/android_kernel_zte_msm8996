@@ -674,26 +674,6 @@
         goodix,gpio_irq = <&tlmm 123 0>;
     };
 
-	fpc1020 {
-		status = "ok";
-		compatible = "fpc,fpc1020";
-		interrupt-parent = <&tlmm>;
-		interrupts = <123 0x0>;
-		fpc,gpio_rst    = <&tlmm 39 0x0>;
-		fpc,gpio_irq    = <&tlmm 123 0x0>;
-		fpc,gpio_pwr    = <&tlmm 85 0x0>;
-		fpc,enable-on-boot;
-		/* fpc,enable-wakeup; */
-
-		pinctrl-names = "fpc1020_reset_reset",
-			"fpc1020_reset_active",
-			"fpc1020_irq_active";
-
-		pinctrl-0 = <&msm_gpio_39>;
-		pinctrl-1 = <&msm_gpio_39_output_high>;
-		pinctrl-2 = <&msm_gpio_123>;
-	};
-
 // ZTE_chenjun
 	i2c@7577000 { /* BLSP1 QUP3 */
 		ak4490@10 {
