@@ -1,5 +1,5 @@
 ccflags-$(CONFIG_POWER_SUPPLY_DEBUG) := -DDEBUG
-ifneq (,$(filter P996A01_N P996A04_N, $(ZTE_PROJECT_NAME)))
+ifeq CONFIG_BOARD_AILSA_II
 ccflags-y += -DZTE_AILSA_II_VR
 endif
 power_supply-y				:= power_supply_core.o
