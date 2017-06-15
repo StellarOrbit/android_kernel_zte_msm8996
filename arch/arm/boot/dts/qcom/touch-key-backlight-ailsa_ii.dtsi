@@ -1,32 +1,14 @@
-/ {
-	aliases {
-		i2c12 = &i2c_12;
-	};
-};
-
-&soc {
-	i2c_12: i2c@75ba000 {
-		compatible = "qcom,i2c-msm-v2";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg-names = "qup_phys_addr";
-		reg = <0x75ba000 0x1000>;
-		interrupt-names = "qup_irq";
-		interrupts = <0 106 0>;
-		dmas = <&dma_blsp2 22 64 0x20000020 0x20>,
-			<&dma_blsp2 23 32 0x20000020 0x20>;
-		dma-names = "tx", "rx";
-		qcom,master-id = <84>;
-		qcom,clk-freq-out = <400000>;
-		qcom,clk-freq-in  = <19200000>;
-		clock-names = "iface_clk", "core_clk";
-		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
-			 <&clock_gcc clk_gcc_blsp2_qup6_i2c_apps_clk>;
-		pinctrl-names = "i2c_active", "i2c_sleep";
-		pinctrl-0 = <&i2c_12_active>;
-		pinctrl-1 = <&i2c_12_sleep>;
-	};
-};
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
 
 &soc {
 	i2c@75ba000 {
@@ -84,6 +66,7 @@
 		};
 	};
 
+	/delete-node/ gen-vkeys;
 	gen-vkeys {
 		compatible = "zte,gen-vkeys";
 		label = "synaptics_dsx";
@@ -108,7 +91,7 @@
 			gpios = <&pm8994_gpios 2 0x1>;
 			linux,input-type = <1>;
 			linux,code = <114>;
-			//gpio-key,wakeup;
+			/delete-property/ gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
 		vol_down {
@@ -120,13 +103,7 @@
 			debounce-interval = <15>;
 		};
 
-		/*cam_focus {
-			label = "cam_focus";
-			gpios = <&pm8994_gpios 5 0x1>;
-			linux,input-type = <1>;
-			linux,code = <528>;
-			gpio-key,wakeup;
-			debounce-interval = <15>;
-		};*/
+		/delete-node/ cam_snapshot;
+		/delete-node/ cam_focus;
 	};
 };

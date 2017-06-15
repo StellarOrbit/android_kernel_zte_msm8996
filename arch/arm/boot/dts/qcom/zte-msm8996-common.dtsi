@@ -28,7 +28,7 @@
     };
 };
 
-// msm8996-camera.dtsi start
+// Camera
 
 &soc {
 	qcom,csiphy@a34000 {
