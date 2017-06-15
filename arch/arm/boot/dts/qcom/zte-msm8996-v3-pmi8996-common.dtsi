@@ -10,5 +10,5 @@
  * GNU General Public License for more details.
  */
 
-#include "zte-msm8996-v3-pmi8996-common"
-#include "touch-key-backlight-ailsa_ii.dtsi"
+#include "zte-camera-sensor-mtp.dtsi"
+#include "zte-usb-type-c.dtsi"
