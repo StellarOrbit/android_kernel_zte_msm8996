@@ -12,3 +12,34 @@
 
 #include "zte-camera-sensor-mtp.dtsi"
 #include "zte-usb-type-c.dtsi"
+
+&soc {
+    zte_misc {
+        compatible = "zte-misc";
+    };
+    zte-hall {
+        compatible = "zte-hall";
+        pinctrl-names = "zte_hall_gpio_active";
+        pinctrl-0 = <&zte_hall_gpio_active>;
+        hall_en{
+            label = "hall_en";
+            gpios = <&tlmm 124 0x0>;
+        };
+    };
+};
+
+// msm8996-camera.dtsi start
+
+&soc {
+	qcom,csiphy@a34000 {
+		qcom,clock-rates = <0 0 266670000 0 0 200000000 0>;
+	};
+
+	qcom,csid@a30000  {
+		qcom,clock-rates = <0 0 0 320000000 0 0 0 0 0 0>;
+	};
+};
+
+&i2c_freq_400Khz {
+	qcom,hw-scl-stretch-en = <1>;
+};

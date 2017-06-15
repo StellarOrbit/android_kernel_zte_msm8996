@@ -10,5 +10,5 @@
  * GNU General Public License for more details.
  */
 
-#include "zte-msm8996-v3-pmi8996-common"
+#include "zte-msm8996-common.dtsi"
 #include "touch-key-backlight-ailsa_ii.dtsi"
