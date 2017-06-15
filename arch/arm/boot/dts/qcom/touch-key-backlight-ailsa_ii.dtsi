@@ -66,7 +66,6 @@
 		};
 	};
 
-	/delete-node/ gen-vkeys;
 	gen-vkeys {
 		compatible = "zte,gen-vkeys";
 		label = "synaptics_dsx";
@@ -106,4 +105,16 @@
 		/delete-node/ cam_snapshot;
 		/delete-node/ cam_focus;
 	};
+
+
+    	goodix_gf3118@1 {
+		compatible = "goodix,fingerprint";
+		//reg = <0x1>;
+		spi-max-frequency = <4800000>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <123 0x0>;
+		goodix,gpio_pwr = <&tlmm 85 0>;
+		goodix,gpio_reset = <&tlmm 39 0>;
+		goodix,gpio_id = <&tlmm 21 0>;
+		goodix,gpio_irq = <&tlmm 123 0>;
 };
